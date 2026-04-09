@@ -1,0 +1,165 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rendo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-api
+  namespace: rendo
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: gateway-api
+  template:
+    metadata:
+      labels:
+        app: gateway-api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/rendo/api:2.0.0
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "2Gi"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cinematic-engine-service
+  namespace: rendo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cinematic-engine-service
+  template:
+    metadata:
+      labels:
+        app: cinematic-engine-service
+    spec:
+      containers:
+        - name: cinematic
+          image: ghcr.io/rendo/cinematic-engine:2.0.0
+          env:
+            - name: KAFKA_TOPIC_INPUT
+              value: cinematic.moment.detected
+            - name: KAFKA_TOPIC_OUTPUT
+              value: cinematic.highlight.rendered
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-graph-service
+  namespace: rendo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: memory-graph-service
+  template:
+    metadata:
+      labels:
+        app: memory-graph-service
+    spec:
+      containers:
+        - name: memory
+          image: ghcr.io/rendo/memory-graph-service:2.0.0
+          env:
+            - name: GRAPH_DB_URI
+              value: bolt://neo4j:7687
+            - name: GRAPH_DB_NAME
+              value: rendo_memory
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emotion-ai-service
+  namespace: rendo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: emotion-ai-service
+  template:
+    metadata:
+      labels:
+        app: emotion-ai-service
+    spec:
+      containers:
+        - name: emotion
+          image: ghcr.io/rendo/emotion-ai-service:2.0.0
+          env:
+            - name: MODEL_NAME
+              value: emotion-detector-v3
+            - name: FEATURE_TOPIC
+              value: emotion.state.updated
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: neo4j
+  namespace: rendo
+spec:
+  serviceName: neo4j
+  replicas: 1
+  selector:
+    matchLabels:
+      app: neo4j
+  template:
+    metadata:
+      labels:
+        app: neo4j
+    spec:
+      containers:
+        - name: neo4j
+          image: neo4j:5
+          ports:
+            - containerPort: 7474
+            - containerPort: 7687
+          env:
+            - name: NEO4J_AUTH
+              value: neo4j/change_me_in_prod
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-api
+  namespace: rendo
+spec:
+  selector:
+    app: gateway-api
+  ports:
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: neo4j
+  namespace: rendo
+spec:
+  selector:
+    app: neo4j
+  ports:
+    - name: http
+      port: 7474
+      targetPort: 7474
+    - name: bolt
+      port: 7687
+      targetPort: 7687

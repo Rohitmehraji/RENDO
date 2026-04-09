@@ -1,0 +1,216 @@
+openapi: 3.1.0
+info:
+  title: RENDO Platform API
+  version: 2.0.0
+  description: APIs for cinematic highlights, voice commands, memory world events, and core game platform services.
+servers:
+  - url: https://api.rendo.game
+paths:
+  /v1/auth/login:
+    post:
+      summary: Login with OAuth token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, access_token]
+              properties:
+                provider:
+                  type: string
+                  enum: [google, apple, steam, epic]
+                access_token:
+                  type: string
+      responses:
+        '200':
+          description: Access granted
+
+  /v1/cinematic/highlights/jobs:
+    post:
+      summary: Create a highlight-generation job from match events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HighlightJobRequest'
+      responses:
+        '202':
+          description: Highlight job accepted
+
+  /v1/voice/commands:
+    post:
+      summary: Execute a voice-to-world command
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoiceCommandRequest'
+      responses:
+        '200':
+          description: Command accepted/executed
+
+  /v1/memory/events:
+    post:
+      summary: Append a persistent memory event into the world graph
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemoryEventRequest'
+      responses:
+        '202':
+          description: Memory event appended
+
+  /v1/avatar-clone/jobs:
+    post:
+      summary: Submit assets for digital clone generation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AvatarCloneRequest'
+      responses:
+        '202':
+          description: Job accepted
+
+  /v1/matchmaking/queue:
+    post:
+      summary: Enqueue player for a selected mode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueueRequest'
+      responses:
+        '200':
+          description: Queue ticket returned
+
+  /v1/npc/dialogue:
+    post:
+      summary: Generate NPC response using memory context
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NpcDialogueRequest'
+      responses:
+        '200':
+          description: Dialogue generated
+
+components:
+  schemas:
+    HighlightJobRequest:
+      type: object
+      required: [player_id, match_id, trigger_type, replay_uri, aspect_ratio]
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        match_id:
+          type: string
+        trigger_type:
+          type: string
+          enum: [clutch_kill, betrayal, last_survivor, streak]
+        replay_uri:
+          type: string
+          format: uri
+        aspect_ratio:
+          type: string
+          enum: ['16:9', '9:16', '1:1']
+        include_subtitles:
+          type: boolean
+          default: true
+
+    VoiceCommandRequest:
+      type: object
+      required: [player_id, session_id, transcript]
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+        transcript:
+          type: string
+          minLength: 1
+          maxLength: 128
+        locale:
+          type: string
+          default: en-US
+        confidence:
+          type: number
+
+    MemoryEventRequest:
+      type: object
+      required: [actor_id, target_id, event_type, intensity]
+      properties:
+        actor_id:
+          type: string
+        target_id:
+          type: string
+        event_type:
+          type: string
+          enum: [saved, betrayed, traded, attacked, protected]
+        intensity:
+          type: integer
+          minimum: 1
+          maximum: 100
+        witness_count:
+          type: integer
+          minimum: 0
+
+    AvatarCloneRequest:
+      type: object
+      required: [player_id, face_asset_uri, voice_asset_uri, motion_asset_uri, consent_token]
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        face_asset_uri:
+          type: string
+          format: uri
+        voice_asset_uri:
+          type: string
+          format: uri
+        motion_asset_uri:
+          type: string
+          format: uri
+        consent_token:
+          type: string
+
+    QueueRequest:
+      type: object
+      required: [player_id, mode, region]
+      properties:
+        player_id:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          enum: [battle_royale, story, social, war_sim, dream_mode]
+        region:
+          type: string
+        mmr:
+          type: number
+
+    NpcDialogueRequest:
+      type: object
+      required: [npc_id, player_id, player_utterance]
+      properties:
+        npc_id:
+          type: string
+          format: uuid
+        player_id:
+          type: string
+          format: uuid
+        player_utterance:
+          type: string
+        mood_hint:
+          type: string
